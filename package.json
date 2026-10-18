@@ -1,0 +1,12 @@
+{
+  "name": "paypal-profile-finder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Consulta de metadados públicos PayPal.Me",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
