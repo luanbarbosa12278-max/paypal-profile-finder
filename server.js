@@ -60,21 +60,33 @@ const server = http.createServer(async (req, res) => {
       const html = (await response.text()).slice(0, 2000000);
       const titleTag = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
       const title = (meta(html, 'og:title') || (titleTag ? titleTag[1] : '')).replace(/<[^>]+>/g, '').trim();
-      const photo = meta(html, 'og:image') || meta(html, 'twitter:image');
       const description = meta(html, 'og:description') || meta(html, 'description');
+      // PayPal may expose the actual public avatar in page data rather than og:image.
+      // Prefer pics.paypal.com URLs and profile/avatar-specific fields over generic social preview images.
+      let photo = '';
+      const photoField = html.match(/["'](?:profilePhoto|profilePicture|profileImage|avatarUrl|photoUrl)["']\\s*:\\s*["']([^"']+)["']/i);
+      const photoCandidates = [
+        photoField && photoField[1],
+        ...((html.match(/https?:\\?\/\\?\/pics\\.paypal\\.com[^"'\\s<>\\\\]+/gi)) || []).map(value => value.replace(/\\\\\\//g, '/')),
+        meta(html, 'og:image'),
+        meta(html, 'twitter:image')
+      ].filter(Boolean);
+      for (const candidate of photoCandidates) {
+        try {
+          const imageUrl = new URL(candidate.replace(/&amp;/g, '&'), finalUrl);
+          if (imageUrl.protocol === 'https:' && imageUrl.hostname === 'pics.paypal.com') {
+            photo = imageUrl.href;
+            break;
+          }
+        } catch {}
+      }
 
       if (!title && !photo && !description) {
         return send(res, 200, { found: false, title: 'Perfil não confirmado', message: 'A página não expôs metadados públicos suficientes.' });
       }
 
       const displayName = title.replace(/\s*[|–-]\s*PayPal.*$/i, '').trim() || username;
-      let photoUrl = '';
-      try {
-        const imageUrl = new URL(photo, finalUrl);
-        if (imageUrl.protocol === 'https:' && (imageUrl.hostname === 'paypalobjects.com' || imageUrl.hostname.endsWith('.paypalobjects.com') || imageUrl.hostname.endsWith('.paypal.com'))) {
-          photoUrl = imageUrl.href;
-        }
-      } catch {}
+      const photoUrl = photo;
 
       return send(res, 200, {
         found: true,
