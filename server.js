@@ -51,8 +51,10 @@ const server = http.createServer(async (req, res) => {
       }
 
       const finalUrl = new URL(response.url);
-      if (!['paypal.me', 'www.paypal.me'].includes(finalUrl.hostname)) {
-        return send(res, 200, { found: false, title: 'Página não confirmada', message: 'O redirecionamento não permitiu confirmar o perfil.' });
+      const isPaypalMeHost = ['paypal.me', 'www.paypal.me'].includes(finalUrl.hostname);
+      const isPaypalMeRedirect = finalUrl.hostname === 'www.paypal.com' && /^\/paypalme(?:\/|$)/i.test(finalUrl.pathname);
+      if (!isPaypalMeHost && !isPaypalMeRedirect) {
+        return send(res, 200, { found: false, title: 'Página não confirmada', message: 'O endereço final não corresponde a uma página PayPal.Me reconhecida.' });
       }
 
       const html = (await response.text()).slice(0, 2000000);
