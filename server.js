@@ -61,19 +61,19 @@ const server = http.createServer(async (req, res) => {
       const titleTag = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
       const title = (meta(html, 'og:title') || (titleTag ? titleTag[1] : '')).replace(/<[^>]+>/g, '').trim();
       const description = meta(html, 'og:description') || meta(html, 'description');
-      // PayPal may expose the actual public avatar in page data rather than og:image.
-      // Prefer pics.paypal.com URLs and profile/avatar-specific fields over generic social preview images.
+      // Public PayPal profile photos can be embedded in JSON with escaped slashes.
       let photo = '';
-      const photoField = html.match(/["'](?:profilePhoto|profilePicture|profileImage|avatarUrl|photoUrl)["']\\s*:\\s*["']([^"']+)["']/i);
+      const photoField = html.match(/["'](?:profilePhoto|profilePicture|profileImage|avatarUrl|photoUrl)["']\s*:\s*["']([^"']+)["']/i);
+      const escapedHtml = html.replace(/\\\//g, '/').replace(/&amp;/g, '&');
       const photoCandidates = [
         photoField && photoField[1],
-        ...((html.match(/https?:\\?\/\\?\/pics\\.paypal\\.com[^"'\\s<>\\\\]+/gi)) || []).map(value => value.replace(/\\\\\\//g, '/')),
+        ...((escapedHtml.match(/https?:\/\/pics\.paypal\.com[^"'\\\s<>]+/gi)) || []),
         meta(html, 'og:image'),
         meta(html, 'twitter:image')
       ].filter(Boolean);
       for (const candidate of photoCandidates) {
         try {
-          const imageUrl = new URL(candidate.replace(/&amp;/g, '&'), finalUrl);
+          const imageUrl = new URL(candidate.replace(/\\\//g, '/'), finalUrl);
           if (imageUrl.protocol === 'https:' && imageUrl.hostname === 'pics.paypal.com') {
             photo = imageUrl.href;
             break;
